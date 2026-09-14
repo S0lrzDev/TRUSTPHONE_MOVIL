@@ -40,13 +40,21 @@ export const CheckoutPaymentScreen = ({
     handleConfirmOrder,
   } = useCheckout();
 
-  const { getDirecciones, createDireccion, getMetodosPago } = useCustomData();
+  const { getDirecciones, createDireccion, getMetodosPago, createMetodoPago, deleteMetodoPago } = useCustomData();
   const [direcciones, setDirecciones] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
-  const [savedCards, setSavedCards] = useState([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [isChangingAddress, setIsChangingAddress] = useState(false);
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
+
+  // Estados para Tarjetas / Métodos de pago (mismo patrón que direcciones)
+  const [cards, setCards] = useState([]);
+  const [selectedCard, setSelectedCard] = useState(null);
+  const [loadingCards, setLoadingCards] = useState(true);
+  const [isChangingCard, setIsChangingCard] = useState(false);
+  const [isAddingNewCard, setIsAddingNewCard] = useState(false);
+  const [cardCvv, setCardCvv] = useState('');
+  const [showCardCvv, setShowCardCvv] = useState(false);
 
   // Formulario rápido para nueva dirección desde checkout
   const [newTitulo, setNewTitulo] = useState('Casa');
@@ -58,15 +66,32 @@ export const CheckoutPaymentScreen = ({
   const [newDepartamento, setNewDepartamento] = useState('San Salvador');
   const [savingNewAddress, setSavingNewAddress] = useState(false);
 
+  // Formulario rápido para nueva tarjeta desde checkout
+  const [newCardTipo, setNewCardTipo] = useState('Tarjeta de Débito');
+  const [newCardTitular, setNewCardTitular] = useState(
+    currentUser?.nombre
+      ? `${currentUser.nombre} ${currentUser.Apellido || currentUser.apellido || ''}`.trim()
+      : (currentUser?.name || '')
+  );
+  const [newCardNumber, setNewCardNumber] = useState('');
+  const [newCardExpiry, setNewCardExpiry] = useState('');
+  const [newCardCvv, setNewCardCvv] = useState('');
+  const [newCardShowCvv, setNewCardShowCvv] = useState(false);
+  const [newCardBanco, setNewCardBanco] = useState('Banco Agrícola');
+  const [savingNewCard, setSavingNewCard] = useState(false);
+
   const clienteId = currentUser?._id || currentUser?.id;
 
   useEffect(() => {
-    const fetchSavedAddresses = async () => {
+    const fetchSavedData = async () => {
       if (!clienteId) {
         setLoadingAddresses(false);
+        setLoadingCards(false);
         return;
       }
       setLoadingAddresses(true);
+      setLoadingCards(true);
+
       try {
         const res = await getDirecciones(clienteId);
         if (res.success && res.direcciones) {
@@ -76,27 +101,146 @@ export const CheckoutPaymentScreen = ({
         }
       } catch (e) {
         console.log('Error al cargar direcciones en checkout:', e);
+      } finally {
+        setLoadingAddresses(false);
       }
 
       try {
         const cardsRes = await getMetodosPago(clienteId);
         if (cardsRes.success && cardsRes.metodosPago) {
-          setSavedCards(cardsRes.metodosPago);
-          const defaultCard = cardsRes.metodosPago.find(c => c.esPredeterminado) || cardsRes.metodosPago[0];
-          if (defaultCard) {
-            setSelectedMethod(defaultCard.tipo || 'Tarjeta de Débito');
-            setCardNumber(`•••• •••• •••• ${defaultCard.ultimos4}`);
-            setExpiry(defaultCard.fechaExpiracion || '08/28');
-          }
+          setCards(cardsRes.metodosPago);
+          const defaultCard = cardsRes.metodosPago.find(c => c.esPredeterminado) || cardsRes.metodosPago[0] || null;
+          setSelectedCard(defaultCard);
         }
       } catch (e) {
         console.log('Error al cargar tarjetas en checkout:', e);
+      } finally {
+        setLoadingCards(false);
       }
-      setLoadingAddresses(false);
     };
 
-    fetchSavedAddresses();
+    fetchSavedData();
   }, [clienteId]);
+
+  const handleNewCardNumberChange = (text) => {
+    const cleaned = text.replace(/\D/g, '').slice(0, 16);
+    const formatted = cleaned.match(/.{1,4}/g)?.join(' ') || cleaned;
+    setNewCardNumber(formatted);
+  };
+
+  const handleNewCardExpiryChange = (text) => {
+    const cleaned = text.replace(/\D/g, '').slice(0, 4);
+    if (cleaned.length >= 3) {
+      setNewCardExpiry(`${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}`);
+    } else {
+      setNewCardExpiry(cleaned);
+    }
+  };
+
+  const handleNewCardCvvChange = (text) => {
+    const cleaned = text.replace(/\D/g, '').slice(0, 4);
+    setNewCardCvv(cleaned);
+  };
+
+  const handleSaveQuickCard = async () => {
+    if (!clienteId) {
+      Alert.alert('Sesión requerida', 'Debes iniciar sesión para registrar una tarjeta.');
+      return;
+    }
+    if (!newCardTitular.trim()) {
+      Alert.alert('Campo requerido', 'Por favor ingresa el nombre del titular.');
+      return;
+    }
+    const cleanNumber = newCardNumber.replace(/\D/g, '');
+    if (cleanNumber.length < 15) {
+      Alert.alert('Tarjeta inválida', 'Ingresa un número de tarjeta válido (15 o 16 dígitos).');
+      return;
+    }
+    if (!/^\d{2}\/\d{2}$/.test(newCardExpiry)) {
+      Alert.alert('Fecha inválida', 'La fecha de vencimiento debe tener formato MM/AA (ej. 08/28).');
+      return;
+    }
+    const month = parseInt(newCardExpiry.slice(0, 2), 10);
+    if (month < 1 || month > 12) {
+      Alert.alert('Mes inválido', 'El mes de vencimiento debe estar entre 01 y 12.');
+      return;
+    }
+    if (newCardCvv.length < 3) {
+      Alert.alert('CVV requerido', 'Ingresa el código de seguridad de 3 o 4 dígitos.');
+      return;
+    }
+
+    const marca = cleanNumber.startsWith('4')
+      ? 'VISA'
+      : cleanNumber.startsWith('5')
+      ? 'MasterCard'
+      : cleanNumber.startsWith('3')
+      ? 'American Express'
+      : 'VISA';
+
+    setSavingNewCard(true);
+
+    const payload = {
+      cliente: clienteId,
+      tipo: newCardTipo,
+      titular: newCardTitular.trim(),
+      marca,
+      ultimos4: cleanNumber.slice(-4),
+      fechaExpiracion: newCardExpiry.trim(),
+      banco: newCardBanco || 'Banco Agrícola',
+      esPredeterminado: cards.length === 0,
+    };
+
+    try {
+      const res = await createMetodoPago(payload);
+      setSavingNewCard(false);
+
+      if (res.success && res.metodoPago) {
+        setCards(prev => [res.metodoPago, ...prev]);
+        setSelectedCard(res.metodoPago);
+        setCardCvv(newCardCvv);
+        setIsAddingNewCard(false);
+        setIsChangingCard(false);
+        setNewCardNumber('');
+        setNewCardExpiry('');
+        setNewCardCvv('');
+        Alert.alert('Tarjeta guardada', 'Tu tarjeta se guardó correctamente y ha sido seleccionada.');
+      } else {
+        Alert.alert('Error', res.error || 'No se pudo guardar la tarjeta.');
+      }
+    } catch (e) {
+      setSavingNewCard(false);
+      Alert.alert('Error', 'Hubo un problema al guardar la tarjeta.');
+    }
+  };
+
+  const handleDeleteCard = (id, ultimos4) => {
+    Alert.alert(
+      'Eliminar método de pago',
+      `¿Deseas eliminar la tarjeta terminada en •••• ${ultimos4}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            const res = await deleteMetodoPago(id);
+            if (res.success) {
+              setCards(prev => {
+                const filtered = prev.filter(c => c._id !== id);
+                if (selectedCard?._id === id) {
+                  setSelectedCard(filtered[0] || null);
+                }
+                return filtered;
+              });
+            } else {
+              Alert.alert('Error', res.error || 'No se pudo eliminar la tarjeta.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleSaveQuickAddress = async () => {
     if (!clienteId) {
@@ -470,158 +614,148 @@ export const CheckoutPaymentScreen = ({
             )}
           </View>
 
-          {/* Sección: Método de Pago */}
-          <View style={styles.paymentSectionHeader}>
-            <Text style={styles.paymentSectionTitle}>Método de pago</Text>
-            <View style={styles.tlsBadge}>
-              <Ionicons name="shield-checkmark" size={12} color="#0D9488" />
-              <Text style={styles.tlsText}>Cifrado TLS 256-bit</Text>
-            </View>
-          </View>
-
-          {/* Carrusel de tarjetas guardadas en perfil si existen */}
-          {savedCards.length > 0 && (
-            <View style={{ marginBottom: 14 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textSecondary, marginBottom: 8, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-                Tus tarjetas guardadas
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  {savedCards.map((sc) => {
-                    const isCardSelected = cardNumber.endsWith(sc.ultimos4);
-                    return (
-                      <TouchableOpacity
-                        key={sc._id}
-                        style={{
-                          backgroundColor: isCardSelected ? '#0F2544' : '#FFFFFF',
-                          borderRadius: 12,
-                          padding: 12,
-                          borderWidth: 1.5,
-                          borderColor: isCardSelected ? '#38BDF8' : '#E2E8F0',
-                          minWidth: 155,
-                        }}
-                        onPress={() => {
-                          setSelectedMethod(sc.tipo || 'Tarjeta de Débito');
-                          setCardNumber(`•••• •••• •••• ${sc.ultimos4}`);
-                          setExpiry(sc.fechaExpiracion || '08/28');
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                          <Text style={{ fontSize: 12, fontWeight: '800', color: isCardSelected ? '#38BDF8' : colors.primary }}>
-                            {sc.marca || 'VISA'}
-                          </Text>
-                          {sc.esPredeterminado && (
-                            <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 }}>
-                              <Text style={{ fontSize: 9, fontWeight: '800', color: '#16A34A' }}>Principal</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: isCardSelected ? '#FFFFFF' : colors.textPrimary, letterSpacing: 1 }}>
-                          •••• {sc.ultimos4}
-                        </Text>
-                        <Text style={{ fontSize: 10, color: isCardSelected ? '#94A3B8' : colors.textSecondary, marginTop: 4 }}>
-                          Vence: {sc.fechaExpiracion}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-            </View>
-          )}
-
-          {/* Opción 1: Tarjeta de Débito (Recomendado) */}
-          <TouchableOpacity
-            style={[
-              styles.methodCard,
-              selectedMethod === 'Tarjeta de Débito' && styles.methodCardSelected,
-            ]}
-            onPress={() => setSelectedMethod('Tarjeta de Débito')}
-            activeOpacity={0.9}
-          >
-            <View style={styles.methodHeaderRow}>
-              <View style={styles.radioRow}>
-                <View style={[
-                  styles.radioOuter,
-                  selectedMethod === 'Tarjeta de Débito' && styles.radioOuterSelected,
-                ]}>
-                  {selectedMethod === 'Tarjeta de Débito' && <View style={styles.radioInner} />}
-                </View>
-                <Text style={styles.methodName}>Tarjeta de Débito</Text>
+          {/* ── SECCIÓN: Método de Pago (Mismo patrón que Dirección de Entrega) ── */}
+          <View style={addrStyles.checkoutAddressCard}>
+            <View style={addrStyles.checkoutAddressHeader}>
+              <View style={addrStyles.checkoutAddressTitleRow}>
+                <Ionicons name="card" size={18} color={colors.primary} />
+                <Text style={addrStyles.checkoutAddressTitle}>Método de pago</Text>
               </View>
-
-              <View style={styles.badgesRow}>
-                <View style={styles.recommendedBadge}>
-                  <Text style={styles.recommendedBadgeText}>Recomendado</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={styles.tlsBadge}>
+                  <Ionicons name="shield-checkmark" size={12} color="#0D9488" />
+                  <Text style={styles.tlsText}>TLS 256-bit</Text>
                 </View>
-                <View style={styles.cardLogoBadge}>
-                  <Text style={styles.cardLogoText}>VISA</Text>
-                </View>
-                <View style={styles.cardLogoBadge}>
-                  <Text style={styles.cardLogoText}>MC</Text>
-                </View>
+                {cards.length > 0 && !isAddingNewCard && (
+                  <TouchableOpacity
+                    style={addrStyles.checkoutChangeBtn}
+                    onPress={() => setIsChangingCard(!isChangingCard)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={addrStyles.checkoutChangeBtnText}>
+                      {isChangingCard ? 'Cerrar' : 'Cambiar'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
-            <Text style={styles.banksSupportedText}>
-              Banco Agrícola, BAC Credomatic, Banco Cuscatlán y redes locales
-            </Text>
+            {loadingCards ? (
+              <View style={{ paddingVertical: 14, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>
+                  Cargando métodos de pago...
+                </Text>
+              </View>
+            ) : isAddingNewCard ? (
+              /* Mini Formulario de Tarjeta */
+              <View style={styles.quickFormCard}>
+                <Text style={styles.quickFormTitle}>Nueva tarjeta de crédito o débito</Text>
 
-            {/* Formulario de tarjeta desplegado si Débito está seleccionado */}
-            {selectedMethod === 'Tarjeta de Débito' && (
-              <View style={styles.cardForm}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Número de tarjeta</Text>
+                {/* Chips de tipo */}
+                <View style={[styles.labelRowQuick, { marginBottom: 10 }]}>
+                  {['Tarjeta de Débito', 'Tarjeta de Crédito'].map((t) => (
+                    <TouchableOpacity
+                      key={t}
+                      style={[styles.quickChip, newCardTipo === t && styles.quickChipActive]}
+                      onPress={() => setNewCardTipo(t)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.quickChipText, newCardTipo === t && styles.quickChipTextActive]}>
+                        {t}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <View style={styles.quickInputGroup}>
+                  <Text style={styles.quickInputLabel}>Nombre del titular (como aparece en la tarjeta) *</Text>
+                  <TextInput
+                    style={styles.quickInput}
+                    value={newCardTitular}
+                    onChangeText={setNewCardTitular}
+                    placeholder="Ej: ROBERTO SOLORZANO"
+                    placeholderTextColor="#94A3B8"
+                    autoCapitalize="characters"
+                  />
+                </View>
+
+                <View style={styles.quickInputGroup}>
+                  <Text style={styles.quickInputLabel}>Número de tarjeta *</Text>
                   <View style={styles.cardInputWrapper}>
                     <TextInput
-                      style={styles.cardInput}
-                      value={cardNumber}
-                      onChangeText={handleCardNumberChange}
-                      placeholder="4000 •••• •••• 8824"
+                      style={[styles.quickInput, { borderWidth: 0, paddingHorizontal: 0, flex: 1 }]}
+                      value={newCardNumber}
+                      onChangeText={handleNewCardNumberChange}
+                      placeholder="4000 1234 5678 9010"
                       placeholderTextColor="#94A3B8"
                       keyboardType="numeric"
                       maxLength={19}
                     />
-                    <Ionicons name="card-outline" size={20} color="#0D9488" />
+                    <Ionicons
+                      name="card-outline"
+                      size={20}
+                      color={colors.primary}
+                    />
                   </View>
                 </View>
 
-                <View style={styles.rowTwoInputs}>
-                  <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                    <Text style={styles.inputLabel}>Vencimiento</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={[styles.quickInputGroup, { flex: 1 }]}>
+                    <Text style={styles.quickInputLabel}>Vencimiento (MM/AA) *</Text>
                     <TextInput
-                      style={styles.cardInput}
-                      value={expiry}
-                      onChangeText={handleExpiryChange}
-                      placeholder="MM/AA (ej. 08/28)"
+                      style={styles.quickInput}
+                      value={newCardExpiry}
+                      onChangeText={handleNewCardExpiryChange}
+                      placeholder="08/28"
                       placeholderTextColor="#94A3B8"
                       keyboardType="numeric"
                       maxLength={5}
                     />
                   </View>
-
-                  <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                  <View style={[styles.quickInputGroup, { flex: 1 }]}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={styles.inputLabel}>CVV / CVC</Text>
-                      <TouchableOpacity onPress={() => setShowCvv(!showCvv)}>
+                      <Text style={styles.quickInputLabel}>CVV / CVC *</Text>
+                      <TouchableOpacity onPress={() => setNewCardShowCvv(!newCardShowCvv)}>
                         <Ionicons
-                          name={showCvv ? "eye-off-outline" : "help-circle-outline"}
-                          size={14}
+                          name={newCardShowCvv ? "eye-off-outline" : "eye-outline"}
+                          size={13}
                           color="#64748B"
                         />
                       </TouchableOpacity>
                     </View>
                     <TextInput
-                      style={styles.cardInput}
-                      value={cvv}
-                      onChangeText={handleCvvChange}
-                      placeholder="•••"
+                      style={styles.quickInput}
+                      value={newCardCvv}
+                      onChangeText={handleNewCardCvvChange}
+                      placeholder="123"
                       placeholderTextColor="#94A3B8"
                       keyboardType="numeric"
-                      secureTextEntry={!showCvv}
+                      secureTextEntry={!newCardShowCvv}
                       maxLength={4}
                     />
+                  </View>
+                </View>
+
+                <View style={styles.quickInputGroup}>
+                  <Text style={styles.quickInputLabel}>Banco emisor (opcional)</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                    {['Banco Agrícola', 'BAC Credomatic', 'Banco Cuscatlán', 'Davivienda'].map((b) => (
+                      <TouchableOpacity
+                        key={b}
+                        style={[
+                          styles.quickChip,
+                          { paddingHorizontal: 8, paddingVertical: 4 },
+                          newCardBanco === b && styles.quickChipActive,
+                        ]}
+                        onPress={() => setNewCardBanco(b)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.quickChipText, { fontSize: 10 }, newCardBanco === b && styles.quickChipTextActive]}>
+                          {b}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
                 </View>
 
@@ -631,96 +765,196 @@ export const CheckoutPaymentScreen = ({
                     Transacción cifrada en USD con tokenización 3DS segura
                   </Text>
                 </View>
-              </View>
-            )}
-          </TouchableOpacity>
 
-          {/* Opción 2: Tarjeta de Crédito */}
-          <TouchableOpacity
-            style={[
-              styles.methodCard,
-              selectedMethod === 'Tarjeta de Crédito' && styles.methodCardSelected,
-            ]}
-            onPress={() => setSelectedMethod('Tarjeta de Crédito')}
-            activeOpacity={0.9}
-          >
-            <View style={styles.methodHeaderRow}>
-              <View style={styles.radioRow}>
-                <View style={[
-                  styles.radioOuter,
-                  selectedMethod === 'Tarjeta de Crédito' && styles.radioOuterSelected,
-                ]}>
-                  {selectedMethod === 'Tarjeta de Crédito' && <View style={styles.radioInner} />}
+                <View style={styles.quickBtnRow}>
+                  <TouchableOpacity
+                    style={styles.quickCancelBtn}
+                    onPress={() => setIsAddingNewCard(false)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.quickCancelBtnText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.quickSaveBtn}
+                    onPress={handleSaveQuickCard}
+                    disabled={savingNewCard}
+                    activeOpacity={0.85}
+                  >
+                    {savingNewCard ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.quickSaveBtnText}>Guardar y Usar</Text>
+                    )}
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.methodName}>Tarjeta de Crédito</Text>
               </View>
+            ) : isChangingCard ? (
+              /* Selector de tarjetas guardadas */
+              <View style={addrStyles.checkoutAddressSelector}>
+                {cards.map((card) => {
+                  const isSelected = selectedCard?._id === card._id;
+                  return (
+                    <TouchableOpacity
+                      key={card._id}
+                      style={[
+                        addrStyles.checkoutAddressOption,
+                        isSelected && addrStyles.checkoutAddressOptionSelected,
+                      ]}
+                      onPress={() => {
+                        setSelectedCard(card);
+                        setIsChangingCard(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                        size={20}
+                        color={isSelected ? colors.primary : '#94A3B8'}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={{
+                            backgroundColor: card.marca === 'American Express' ? '#E0F2FE' : '#EEF2FF',
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                            borderRadius: 4,
+                          }}>
+                            <Text style={{ fontSize: 10, fontWeight: '800', color: colors.primary }}>
+                              {card.marca || 'VISA'}
+                            </Text>
+                          </View>
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: colors.textPrimary }}>
+                            •••• {card.ultimos4}
+                          </Text>
+                          {card.esPredeterminado && (
+                            <View style={addrStyles.principalBadge}>
+                              <Text style={addrStyles.principalBadgeText}>Principal</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                          {card.titular || 'Titular'} • Vence {card.fechaExpiracion} {card.banco ? `• ${card.banco}` : ''}
+                        </Text>
+                      </View>
 
-              <View style={styles.cuotasBadge}>
-                <Text style={styles.cuotasBadgeText}>Hasta 12 Cuotas Tasa 0%</Text>
+                      {/* Botón para eliminar tarjeta */}
+                      <TouchableOpacity
+                        onPress={() => handleDeleteCard(card._id, card.ultimos4)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        style={{ padding: 4 }}
+                      >
+                        <Ionicons name="trash-outline" size={17} color="#EF4444" />
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                <TouchableOpacity
+                  style={addrStyles.checkoutAddNewBtn}
+                  onPress={() => setIsAddingNewCard(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add" size={16} color={colors.primary} />
+                  <Text style={addrStyles.checkoutAddNewBtnText}>Agregar otra tarjeta</Text>
+                </TouchableOpacity>
               </View>
-            </View>
-
-            <Text style={styles.banksSupportedText}>
-              BAC Credomatic, Banco Agrícola, Cuscatlán, Davivienda y Promerica
-            </Text>
-
-            {/* Formulario si Crédito está seleccionado */}
-            {selectedMethod === 'Tarjeta de Crédito' && (
-              <View style={styles.cardForm}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Número de tarjeta</Text>
-                  <View style={styles.cardInputWrapper}>
-                    <TextInput
-                      style={styles.cardInput}
-                      value={cardNumber}
-                      onChangeText={handleCardNumberChange}
-                      placeholder="4000 •••• •••• 8824"
-                      placeholderTextColor="#94A3B8"
-                      keyboardType="numeric"
-                      maxLength={19}
-                    />
-                    <Ionicons name="card-outline" size={20} color="#0D9488" />
+            ) : selectedCard ? (
+              /* Tarjeta seleccionada actualmente */
+              <View style={addrStyles.checkoutAddressBody}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{
+                      backgroundColor: selectedCard.marca === 'American Express' ? '#E0F2FE' : '#EEF2FF',
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 4,
+                    }}>
+                      <Text style={{ fontSize: 10, fontWeight: '800', color: colors.primary }}>
+                        {selectedCard.marca || 'VISA'}
+                      </Text>
+                    </View>
+                    <Text style={addrStyles.checkoutAddressName}>
+                      •••• {selectedCard.ultimos4}
+                    </Text>
+                    {selectedCard.esPredeterminado && (
+                      <View style={addrStyles.principalBadge}>
+                        <Text style={addrStyles.principalBadgeText}>Principal</Text>
+                      </View>
+                    )}
                   </View>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary }}>
+                    {selectedCard.tipo || 'Tarjeta'}
+                  </Text>
                 </View>
 
-                <View style={styles.rowTwoInputs}>
-                  <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                    <Text style={styles.inputLabel}>Vencimiento</Text>
-                    <TextInput
-                      style={styles.cardInput}
-                      value={expiry}
-                      onChangeText={handleExpiryChange}
-                      placeholder="MM/AA"
-                      placeholderTextColor="#94A3B8"
-                      keyboardType="numeric"
-                      maxLength={5}
-                    />
+                <Text style={addrStyles.checkoutAddressText}>
+                  Titular: {selectedCard.titular || currentUser?.nombre || 'Titular registrado'}
+                </Text>
+                <Text style={addrStyles.checkoutAddressText}>
+                  Vencimiento: {selectedCard.fechaExpiracion} {selectedCard.banco ? `• ${selectedCard.banco}` : ''}
+                </Text>
+
+                {/* Input de autorización CVV */}
+                <View style={{
+                  marginTop: 10,
+                  paddingTop: 10,
+                  borderTopWidth: 1,
+                  borderTopColor: '#E2E8F0',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textPrimary }}>
+                      Código de seguridad (CVV) *
+                    </Text>
+                    <Text style={{ fontSize: 10, color: colors.textSecondary }}>
+                      3 o 4 dígitos al reverso
+                    </Text>
                   </View>
 
-                  <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-                    <Text style={styles.inputLabel}>CVV / CVC</Text>
+                  <View style={{ width: 90 }}>
                     <TextInput
-                      style={styles.cardInput}
-                      value={cvv}
-                      onChangeText={handleCvvChange}
+                      style={[styles.quickInput, { textAlign: 'center', fontWeight: '700', letterSpacing: 2, height: 38 }]}
+                      value={cardCvv}
+                      onChangeText={setCardCvv}
                       placeholder="•••"
                       placeholderTextColor="#94A3B8"
                       keyboardType="numeric"
-                      secureTextEntry={!showCvv}
+                      secureTextEntry={!showCardCvv}
                       maxLength={4}
                     />
                   </View>
-                </View>
 
-                <View style={styles.securityNoticeRow}>
-                  <Ionicons name="lock-closed" size={13} color="#0D9488" />
-                  <Text style={styles.securityNoticeText}>
-                    Transacción cifrada en USD con tokenización 3DS segura
-                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowCardCvv(!showCardCvv)}
+                    style={{ padding: 6, marginLeft: 2 }}
+                  >
+                    <Ionicons
+                      name={showCardCvv ? "eye-off-outline" : "eye-outline"}
+                      size={18}
+                      color="#64748B"
+                    />
+                  </TouchableOpacity>
                 </View>
               </View>
+            ) : (
+              /* Sin tarjetas registradas */
+              <View style={addrStyles.noAddressContainer}>
+                <Ionicons name="card-outline" size={32} color="#94A3B8" />
+                <Text style={addrStyles.noAddressText}>
+                  No tienes tarjetas guardadas para el pago
+                </Text>
+                <TouchableOpacity
+                  style={[addrStyles.checkoutChangeBtn, { paddingHorizontal: 16, paddingVertical: 8 }]}
+                  onPress={() => setIsAddingNewCard(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={addrStyles.checkoutChangeBtnText}>+ Agregar tarjeta de débito o crédito</Text>
+                </TouchableOpacity>
+              </View>
             )}
-          </TouchableOpacity>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -741,13 +975,25 @@ export const CheckoutPaymentScreen = ({
         </View>
 
         <TouchableOpacity
-          style={[styles.confirmBtn, (loading || (!selectedAddress && !loadingAddresses)) && styles.confirmBtnDisabled]}
+          style={[
+            styles.confirmBtn,
+            (loading || (!selectedAddress && !loadingAddresses) || (!selectedCard && cards.length > 0)) && styles.confirmBtnDisabled,
+          ]}
           onPress={() => {
             if (!selectedAddress) {
               Alert.alert('Dirección requerida', 'Por favor agrega o selecciona una dirección de entrega.');
               return;
             }
-            handleConfirmOrder(cart, currentUser, onSuccess, selectedAddress);
+            if (!selectedCard && cards.length > 0) {
+              Alert.alert('Tarjeta requerida', 'Por favor selecciona una tarjeta de pago.');
+              return;
+            }
+            if (!selectedCard && cards.length === 0) {
+              Alert.alert('Tarjeta requerida', 'Por favor agrega una tarjeta de pago para continuar.');
+              setIsAddingNewCard(true);
+              return;
+            }
+            handleConfirmOrder(cart, currentUser, onSuccess, selectedAddress, selectedCard, cardCvv);
           }}
           disabled={loading}
           activeOpacity={0.85}
@@ -756,8 +1002,8 @@ export const CheckoutPaymentScreen = ({
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
             <>
-              <Text style={styles.confirmBtnText}>
-                Continuar a Resumen y Confirmar (${formattedSubtotal})
+              <Text style={styles.confirmBtnText} numberOfLines={1}>
+                Continuar al Resumen
               </Text>
               <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
             </>
@@ -1128,6 +1374,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 16,
     gap: 8,
     ...shadows.button,
   },
@@ -1136,8 +1383,10 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: {
     color: '#FFFFFF',
-    fontSize: fontSize.sm + 1,
+    fontSize: 15,
     fontWeight: '700',
+    letterSpacing: 0.3,
+    textAlign: 'center',
   },
   // ─── Estilos de formulario rápido de dirección en Checkout ───
   quickFormCard: {

@@ -131,6 +131,14 @@ const PaymentMethodsScreen = ({ currentUser, onBack, onNavigate }) => {
                 <Text style={styles.emptySubtitle}>
                   Agrega una tarjeta de débito o crédito para agilizar tus compras en Trustphone.
                 </Text>
+                <TouchableOpacity
+                  style={[styles.addBtn, { paddingHorizontal: 24, height: 46, marginTop: 4 }]}
+                  onPress={handleAdd}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
+                  <Text style={[styles.addBtnText, { fontSize: 14 }]}>Agregar tarjeta</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <>

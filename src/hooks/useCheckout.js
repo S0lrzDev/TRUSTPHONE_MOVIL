@@ -6,10 +6,9 @@ export const useCheckout = () => {
   const { createOrder } = useCustomData();
 
   const [selectedMethod, setSelectedMethod] = useState('Tarjeta de Débito');
-  const [cardNumber, setCardNumber] = useState('4000 8824 5678 8824');
-  const [expiry, setExpiry] = useState('08/28');
-  // VALIDACIÓN PURAMENTE LOCAL: Nunca se persiste ni se envía al servidor/BD
-  const [cvv, setCvv] = useState('882');
+  const [cardNumber, setCardNumber] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [cvv, setCvv] = useState('');
   const [showCvv, setShowCvv] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -58,8 +57,24 @@ export const useCheckout = () => {
     return true;
   };
 
-  const handleConfirmOrder = async (cart, currentUser, onSuccess, selectedAddress = null) => {
-    if (!validatePayment()) return;
+  const handleConfirmOrder = async (
+    cart,
+    currentUser,
+    onSuccess,
+    selectedAddress = null,
+    selectedCard = null,
+    cardCvv = null
+  ) => {
+    const effectiveCvv = (cardCvv || cvv || '').trim();
+
+    if (selectedCard) {
+      if (!effectiveCvv || effectiveCvv.length < 3) {
+        Alert.alert('CVV / CVC requerido', 'Por favor ingresa el código de seguridad (CVV) de 3 dígitos para autorizar el pago.');
+        return;
+      }
+    } else {
+      if (!validatePayment()) return;
+    }
 
     if (!cart || cart.length === 0) {
       Alert.alert('Carrito vacío', 'No hay artículos en tu carrito para procesar.');
@@ -80,8 +95,13 @@ export const useCheckout = () => {
       );
 
       const cleanNumber = cardNumber.replace(/\D/g, '');
-      const ultimos4 = cleanNumber.slice(-4);
-      const marcaTarjeta = cleanNumber.startsWith('4') ? 'VISA' : 'MasterCard';
+      const ultimos4 = selectedCard ? selectedCard.ultimos4 : cleanNumber.slice(-4);
+      const marcaTarjeta = selectedCard ? (selectedCard.marca || 'VISA') : (cleanNumber.startsWith('4') ? 'VISA' : 'MasterCard');
+      const tipoPago = selectedCard ? (selectedCard.tipo || 'Tarjeta de Débito') : selectedMethod;
+      const fechaExp = selectedCard ? (selectedCard.fechaExpiracion || expiry) : expiry;
+      const bancoRed = selectedCard?.banco || (tipoPago === 'Tarjeta de Débito'
+        ? 'Banco Agrícola, BAC Credomatic, Banco Cuscatlán y redes locales'
+        : 'BAC Credomatic, Banco Agrícola, Cuscatlán, Davivienda y Promerica');
 
       // Construcción de la dirección completa
       const direccionCompleta = [
@@ -119,13 +139,11 @@ export const useCheckout = () => {
           garantia: 'Garantía 12 meses',
         })),
         metodoPago: {
-          tipo: selectedMethod,
-          bancoRed: selectedMethod === 'Tarjeta de Débito'
-            ? 'Banco Agrícola, BAC Credomatic, Banco Cuscatlán y redes locales'
-            : 'BAC Credomatic, Banco Agrícola, Cuscatlán, Davivienda y Promerica',
+          tipo: tipoPago,
+          bancoRed,
           ultimos4,
           marcaTarjeta,
-          fechaExpiracion: expiry,
+          fechaExpiracion: fechaExp,
           // NUNCA CVV
         },
         totales: {

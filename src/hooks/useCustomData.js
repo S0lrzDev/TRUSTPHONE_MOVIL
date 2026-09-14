@@ -540,9 +540,32 @@ const useCustomData = () => {
 
       if (response.ok) {
         const data = await response.json();
+        const allCards = data.metodosPago || [];
+
+        // Identificar y limpiar las 2 tarjetas de prueba quemadas (4234 y 3131)
+        const burntCards = allCards.filter(
+          (m) => m.ultimos4 === '4234' || m.ultimos4 === '3131'
+        );
+
+        // Si existen en el backend, borrarlas permanentemente
+        if (burntCards.length > 0) {
+          burntCards.forEach((bc) => {
+            if (bc._id) {
+              fetch(`${API_ENDPOINTS.METODOS_PAGO()}/${bc._id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+              }).catch(() => {});
+            }
+          });
+        }
+
+        const validCards = allCards.filter(
+          (m) => m.ultimos4 !== '4234' && m.ultimos4 !== '3131'
+        );
+
         return {
           success: true,
-          metodosPago: data.metodosPago || [],
+          metodosPago: validCards,
         };
       }
 
