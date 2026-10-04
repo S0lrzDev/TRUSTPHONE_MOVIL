@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { profileStyles as styles } from '../styles/profileStyles';
+import { showComingSoon } from '../utils/alerts';
 
 // ─── Colores de ícono por ítem ────────────────────────────────────────────────
 const MENU_ITEMS_CUENTA = [
@@ -88,7 +89,8 @@ const ProfileScreen = ({ currentUser, onLogout, onNavigate, onBack }) => {
     } else if (key === 'payment') {
       onNavigate('paymentMethods');
     } else {
-      Alert.alert('Próximamente', 'Esta sección estará disponible pronto.', [{ text: 'OK' }]);
+      const nombres = { notifications: 'La sección de Notificaciones', security: 'La sección de Seguridad' };
+      showComingSoon(nombres[key] || 'Esta sección');
     }
   };
 
@@ -117,7 +119,11 @@ const ProfileScreen = ({ currentUser, onLogout, onNavigate, onBack }) => {
             <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Perfil</Text>
-          <TouchableOpacity style={styles.headerSettingsBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.headerSettingsBtn}
+            activeOpacity={0.7}
+            onPress={() => showComingSoon('La configuración de la cuenta')}
+          >
             <Ionicons name="settings-outline" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -135,7 +141,11 @@ const ProfileScreen = ({ currentUser, onLogout, onNavigate, onBack }) => {
               <Text style={styles.avatarInitialText}>{initial}</Text>
             )}
           </View>
-          <TouchableOpacity style={styles.avatarEditBtn} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.avatarEditBtn}
+            activeOpacity={0.8}
+            onPress={() => showComingSoon('El cambio de foto de perfil')}
+          >
             <Ionicons name="add" size={14} color="#FFFFFF" />
           </TouchableOpacity>
         </View>

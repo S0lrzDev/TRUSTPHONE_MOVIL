@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { addressStyles as styles } from '../styles/addressStyles';
 import { colors } from '../styles/theme';
 import useCustomData from '../hooks/useCustomData';
+import { isValidPhone } from '../utils/validations';
 
 const FormInputField = ({
   label,
@@ -89,6 +90,11 @@ const AddressFormScreen = ({ currentUser, editAddress, onBack, onSaveSuccess }) 
 
     if (!telefono.trim()) {
       Alert.alert('Campo requerido', 'Por favor ingresa un número de teléfono de contacto.');
+      return;
+    }
+
+    if (!isValidPhone(telefono)) {
+      Alert.alert('Teléfono inválido', 'El teléfono debe tener entre 8 y 15 dígitos.');
       return;
     }
 

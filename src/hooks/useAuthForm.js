@@ -82,11 +82,7 @@ export function useAuthForm() {
   };
 
   const handleForgotPassword = () => {
-    Alert.alert(
-      'Recuperar Contraseña',
-      'Te enviaremos las instrucciones para restablecer tu contraseña si existe una cuenta asociada.',
-      [{ text: 'Aceptar' }]
-    );
+    router.push('/forgot-password');
   };
 
   const handleSignUp = () => {

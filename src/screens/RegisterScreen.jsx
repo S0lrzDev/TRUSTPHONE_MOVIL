@@ -18,8 +18,12 @@ export const RegisterScreen = () => {
   const {
     fullName,
     setFullName,
+    lastName,
+    setLastName,
     phone,
     setPhone,
+    birthDate,
+    setBirthDate,
     email,
     setEmail,
     password,
@@ -56,16 +60,30 @@ export const RegisterScreen = () => {
             <View style={loginStyles.form}>
               {/* Full Name Input */}
               <Input
-                label="Nombre Completo"
+                label="Nombre"
                 value={fullName}
                 onChangeText={setFullName}
-                placeholder="Juan Pérez"
+                placeholder="Juan"
                 leftIconName="person-outline"
                 autoCapitalize="words"
                 isFocused={focusedInput === 'fullName'}
                 onFocus={() => setFocusedInput('fullName')}
                 onBlur={() => setFocusedInput(null)}
                 error={errors.fullName}
+              />
+
+              {/* Last Name Input */}
+              <Input
+                label="Apellido"
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Pérez"
+                leftIconName="person-outline"
+                autoCapitalize="words"
+                isFocused={focusedInput === 'lastName'}
+                onFocus={() => setFocusedInput('lastName')}
+                onBlur={() => setFocusedInput(null)}
+                error={errors.lastName}
               />
 
               {/* Email Input */}
@@ -88,12 +106,29 @@ export const RegisterScreen = () => {
                 label="Teléfono"
                 value={phone}
                 onChangeText={setPhone}
-                placeholder="+504 9876-5432"
+                placeholder="7012-3456"
                 leftIconName="call-outline"
                 keyboardType="phone-pad"
+                maxLength={15}
                 isFocused={focusedInput === 'phone'}
                 onFocus={() => setFocusedInput('phone')}
                 onBlur={() => setFocusedInput(null)}
+                error={errors.phone}
+              />
+
+              {/* Birth Date Input */}
+              <Input
+                label="Fecha de Nacimiento"
+                value={birthDate}
+                onChangeText={setBirthDate}
+                placeholder="DD/MM/AAAA"
+                leftIconName="calendar-outline"
+                keyboardType="number-pad"
+                maxLength={10}
+                isFocused={focusedInput === 'birthDate'}
+                onFocus={() => setFocusedInput('birthDate')}
+                onBlur={() => setFocusedInput(null)}
+                error={errors.birthDate}
               />
 
               {/* Password Input */}

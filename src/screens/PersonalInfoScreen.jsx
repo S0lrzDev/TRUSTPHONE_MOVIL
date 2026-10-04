@@ -14,6 +14,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius, shadows } from '../styles/theme';
 import useCustomData from '../hooks/useCustomData';
+import { showComingSoon } from '../utils/alerts';
+import { isValidEmail, isValidPhone, validateBirthDate, parseDateDMY } from '../utils/validations';
 
 // ─── Función helper para formatear fechas a DD/MM/AAAA ────────────────────────
 const formatDateForDisplay = (val) => {
@@ -149,6 +151,35 @@ const PersonalInfoScreen = ({ currentUser, onBack, onUpdateUser }) => {
       Alert.alert('Campo requerido', 'El nombre es obligatorio.', [{ text: 'OK' }]);
       return;
     }
+    if (nombre.trim().length < 2) {
+      Alert.alert('Nombre inválido', 'El nombre debe tener al menos 2 caracteres.');
+      return;
+    }
+    if (!apellido.trim()) {
+      Alert.alert('Campo requerido', 'El apellido es obligatorio.');
+      return;
+    }
+    if (!correo.trim()) {
+      Alert.alert('Campo requerido', 'El correo electrónico es obligatorio.');
+      return;
+    }
+    if (!isValidEmail(correo)) {
+      Alert.alert('Correo inválido', 'Ingresa un correo electrónico válido (ej. usuario@correo.com).');
+      return;
+    }
+    if (!telefono.trim()) {
+      Alert.alert('Campo requerido', 'El teléfono es obligatorio.');
+      return;
+    }
+    if (!isValidPhone(telefono)) {
+      Alert.alert('Teléfono inválido', 'El teléfono debe tener entre 8 y 15 dígitos.');
+      return;
+    }
+    const birthError = validateBirthDate(fechaNacimiento);
+    if (birthError) {
+      Alert.alert('Fecha de nacimiento', birthError);
+      return;
+    }
 
     const clienteId = currentUser?._id || currentUser?.id;
     if (!clienteId) {
@@ -164,8 +195,8 @@ const PersonalInfoScreen = ({ currentUser, onBack, onUpdateUser }) => {
         apellido: apellido.trim(),
         correo: correo.trim(),
         telefono: telefono.trim(),
-        fecha_nacimiento: fechaNacimiento.trim(),
-        fechaNacimiento: fechaNacimiento.trim(),
+        fecha_nacimiento: parseDateDMY(fechaNacimiento),
+        fechaNacimiento: parseDateDMY(fechaNacimiento),
       };
 
       const res = await updateCliente(clienteId, payload);
@@ -224,7 +255,11 @@ const PersonalInfoScreen = ({ currentUser, onBack, onUpdateUser }) => {
             <Text style={s.avatarInitial}>{initial}</Text>
           )}
         </View>
-        <TouchableOpacity style={s.editPhotoBtn} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={s.editPhotoBtn}
+          activeOpacity={0.8}
+          onPress={() => showComingSoon('El cambio de foto de perfil')}
+        >
           <Ionicons name="pencil" size={13} color="#FFF" />
         </TouchableOpacity>
       </View>

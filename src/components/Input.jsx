@@ -23,6 +23,7 @@ export const Input = ({
   error,
   keyboardType = 'default',
   autoCapitalize = 'none',
+  maxLength,
 }) => {
   return (
     <View style={loginStyles.inputGroup}>
@@ -75,6 +76,7 @@ export const Input = ({
           onBlur={onBlur}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
+          maxLength={maxLength}
         />
 
         {/* Optional Right Action Icon (Eye toggle) */}

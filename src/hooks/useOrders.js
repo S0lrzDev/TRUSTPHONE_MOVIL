@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
 import { API_ENDPOINTS } from './useCustomData';
+import { REQUEST_TIMEOUT } from '../config/api';
 
 export const useOrders = (currentUser) => {
   const [orders, setOrders] = useState([]);
@@ -37,7 +38,7 @@ export const useOrders = (currentUser) => {
       if (queryString) apiUrl = `${apiUrl}?${queryString}`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'GET',

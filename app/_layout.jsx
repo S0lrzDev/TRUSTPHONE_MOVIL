@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Image, StyleSheet, Animated } from 'react-native';
+import { View, Text, Image, StyleSheet, Animated } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -67,10 +67,12 @@ export default function RootLayout() {
           ]}
         >
           <Image
-            source={require('../assets/images/ChatGPT Image 10 sept 2026, 01_53_23 p.m..png')}
+            source={require('../assets/images/trustphone-logo.png')}
             style={splashStyles.logo}
             resizeMode="contain"
           />
+          <Text style={splashStyles.title}>TrustPhone</Text>
+          <Text style={splashStyles.subtitle}>Celulares verificados y confiables</Text>
         </Animated.View>
       )}
     </View>
@@ -85,7 +87,19 @@ const splashStyles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    width: 280,
-    height: 280,
+    width: 180,
+    height: 180,
+  },
+  title: {
+    marginTop: 24,
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#1E3A75',
+    letterSpacing: 0.5,
+  },
+  subtitle: {
+    marginTop: 6,
+    fontSize: 14,
+    color: '#64748B',
   },
 });

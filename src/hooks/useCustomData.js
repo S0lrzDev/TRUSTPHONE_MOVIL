@@ -1,4 +1,4 @@
-import { getBaseHost } from '../config/api';
+import { getBaseHost, REQUEST_TIMEOUT } from '../config/api';
 
 // Bloque de Endpoints de la API gestionado dentro del custom hook
 export const API_ENDPOINTS = {
@@ -11,10 +11,53 @@ export const API_ENDPOINTS = {
   DIRECCIONES: () => `${getBaseHost()}/api/direcciones`,
   METODOS_PAGO: () => `${getBaseHost()}/api/metodosPago`,
   MARCAS: () => `${getBaseHost()}/api/marcas`,
+  RESENAS: () => `${getBaseHost()}/api/resenas`,
+  RECUPERAR_CONTRASENA: () => `${getBaseHost()}/api/RecuperarContrasena`,
 };
 
 // Variable para persistir el token de verificación en React Native
 let savedVerificationToken = '';
+
+// Variable para persistir el token de recuperación de contraseña
+let savedRecoveryToken = '';
+
+// Lee la respuesta como JSON aunque el servidor devuelva texto plano
+const parseResponse = async (response) => {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
+};
+
+// Petición genérica con tiempo de espera; devuelve { ok, status, data } o lanza error
+const request = async (apiUrl, { method = 'GET', body } = {}) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  try {
+    const response = await fetch(apiUrl, {
+      method,
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    const data = await parseResponse(response);
+    return { ok: response.ok, status: response.status, data };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+const connectionError = (err) =>
+  err.name === 'AbortError'
+    ? 'Tiempo de espera agotado. Verifica tu conexión e intenta de nuevo.'
+    : `No se pudo conectar con el servidor: ${err.message}`;
 
 const useCustomData = () => {
 
@@ -24,7 +67,7 @@ const useCustomData = () => {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -83,7 +126,7 @@ const useCustomData = () => {
       return {
         success: false,
         error: isTimeout
-          ? `Tiempo de espera agotado al conectar con el servidor (${apiUrl}). Asegúrate de que el teléfono y la PC estén en la misma red Wi-Fi.`
+          ? `Tiempo de espera agotado al conectar con el servidor (${apiUrl}). Verifica tu conexión a internet e intenta de nuevo.`
           : `Error al conectar con ${apiUrl}: ${err.message}`,
       };
     }
@@ -95,7 +138,7 @@ const useCustomData = () => {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -165,7 +208,7 @@ const useCustomData = () => {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -225,7 +268,7 @@ const useCustomData = () => {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -290,7 +333,7 @@ const useCustomData = () => {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -330,7 +373,7 @@ const useCustomData = () => {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'PUT',
@@ -369,7 +412,7 @@ const useCustomData = () => {
     const apiUrl = `${API_ENDPOINTS.DIRECCIONES()}?clienteId=${clienteId}`;
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -408,7 +451,7 @@ const useCustomData = () => {
     const apiUrl = API_ENDPOINTS.DIRECCIONES();
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -448,7 +491,7 @@ const useCustomData = () => {
     const apiUrl = `${API_ENDPOINTS.DIRECCIONES()}/${id}`;
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'PUT',
@@ -488,7 +531,7 @@ const useCustomData = () => {
     const apiUrl = `${API_ENDPOINTS.DIRECCIONES()}/${id}`;
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'DELETE',
@@ -526,7 +569,7 @@ const useCustomData = () => {
     const apiUrl = `${API_ENDPOINTS.METODOS_PAGO()}?clienteId=${clienteId}`;
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -588,7 +631,7 @@ const useCustomData = () => {
     const apiUrl = API_ENDPOINTS.METODOS_PAGO();
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -628,7 +671,7 @@ const useCustomData = () => {
     const apiUrl = `${API_ENDPOINTS.METODOS_PAGO()}/${id}`;
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'PUT',
@@ -668,7 +711,7 @@ const useCustomData = () => {
     const apiUrl = `${API_ENDPOINTS.METODOS_PAGO()}/${id}`;
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'DELETE',
@@ -708,7 +751,7 @@ const useCustomData = () => {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -747,7 +790,7 @@ const useCustomData = () => {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       const response = await fetch(apiUrl, {
         method: 'PUT',
@@ -781,7 +824,135 @@ const useCustomData = () => {
     }
   };
 
+  // ─── RESEÑAS ───────────────────────────────────────────────────────────────
+
+  // Obtener reseñas de un celular: GET /api/resenas?idCelular=xxx
+  const getResenas = async (idCelular) => {
+    try {
+      const { ok, data } = await request(`${API_ENDPOINTS.RESENAS()}?idCelular=${idCelular}`);
+      if (ok) {
+        return { success: true, resenas: Array.isArray(data) ? data : [] };
+      }
+      return { success: false, resenas: [], error: data.message || 'No se pudieron cargar las reseñas' };
+    } catch (err) {
+      return { success: false, resenas: [], error: connectionError(err) };
+    }
+  };
+
+  // Obtener promedio y total de valoraciones: GET /api/resenas/resumen/:idCelular
+  const getResumenResenas = async (idCelular) => {
+    try {
+      const { ok, data } = await request(`${API_ENDPOINTS.RESENAS()}/resumen/${idCelular}`);
+      if (ok) {
+        return { success: true, promedio: data.promedio || 0, total: data.total || 0 };
+      }
+      return { success: false, promedio: 0, total: 0 };
+    } catch (err) {
+      return { success: false, promedio: 0, total: 0 };
+    }
+  };
+
+  // Crear reseña: POST /api/resenas
+  const createResena = async (payload) => {
+    try {
+      const { ok, data } = await request(API_ENDPOINTS.RESENAS(), { method: 'POST', body: payload });
+      if (ok) {
+        return { success: true, resena: data.resena, message: data.message || 'Reseña guardada' };
+      }
+      return { success: false, error: data.message || 'No se pudo guardar la reseña' };
+    } catch (err) {
+      return { success: false, error: connectionError(err) };
+    }
+  };
+
+  // Actualizar reseña: PUT /api/resenas/:id
+  const updateResena = async (id, payload) => {
+    try {
+      const { ok, data } = await request(`${API_ENDPOINTS.RESENAS()}/${id}`, { method: 'PUT', body: payload });
+      if (ok) {
+        return { success: true, resena: data.resena, message: data.message || 'Reseña actualizada' };
+      }
+      return { success: false, error: data.message || 'No se pudo actualizar la reseña' };
+    } catch (err) {
+      return { success: false, error: connectionError(err) };
+    }
+  };
+
+  // Eliminar reseña: DELETE /api/resenas/:id
+  const deleteResena = async (id) => {
+    try {
+      const { ok, data } = await request(`${API_ENDPOINTS.RESENAS()}/${id}`, { method: 'DELETE' });
+      if (ok) {
+        return { success: true, message: data.message || 'Reseña eliminada' };
+      }
+      return { success: false, error: data.message || 'No se pudo eliminar la reseña' };
+    } catch (err) {
+      return { success: false, error: connectionError(err) };
+    }
+  };
+
+  // ─── RECUPERACIÓN DE CONTRASEÑA ────────────────────────────────────────────
+
+  // Paso 1: solicitar código al correo: POST /api/RecuperarContrasena/requestCode
+  const requestRecoveryCode = async (correo) => {
+    try {
+      const { ok, data } = await request(`${API_ENDPOINTS.RECUPERAR_CONTRASENA()}/requestCode`, {
+        method: 'POST',
+        body: { correo: correo.trim() },
+      });
+      if (ok) {
+        savedRecoveryToken = data.token || '';
+        return { success: true, message: data.message || 'Código enviado a tu correo' };
+      }
+      return { success: false, error: data.message || 'No se pudo enviar el código' };
+    } catch (err) {
+      return { success: false, error: connectionError(err) };
+    }
+  };
+
+  // Paso 2: verificar código: POST /api/RecuperarContrasena/verifyCode
+  const verifyRecoveryCode = async (code) => {
+    try {
+      const { ok, data } = await request(`${API_ENDPOINTS.RECUPERAR_CONTRASENA()}/verifyCode`, {
+        method: 'POST',
+        body: { codeRequest: String(code).trim(), token: savedRecoveryToken },
+      });
+      if (ok) {
+        if (data.token) savedRecoveryToken = data.token;
+        return { success: true, message: data.message || 'Código verificado' };
+      }
+      return { success: false, error: data.message === 'Invalid Code' ? 'Código incorrecto' : (data.message || 'Código inválido o expirado') };
+    } catch (err) {
+      return { success: false, error: connectionError(err) };
+    }
+  };
+
+  // Paso 3: guardar nueva contraseña: POST /api/RecuperarContrasena/newPassword
+  const resetPassword = async (newPassword, confirNewPassword) => {
+    try {
+      const { ok, data } = await request(`${API_ENDPOINTS.RECUPERAR_CONTRASENA()}/newPassword`, {
+        method: 'POST',
+        body: { newPassword, confirNewPassword, token: savedRecoveryToken },
+      });
+      if (ok) {
+        savedRecoveryToken = '';
+        return { success: true, message: data.message || 'Contraseña actualizada' };
+      }
+      return { success: false, error: data.message || 'No se pudo actualizar la contraseña' };
+    } catch (err) {
+      return { success: false, error: connectionError(err) };
+    }
+  };
+
   return {
+    getResenas,
+    getResumenResenas,
+    createResena,
+    updateResena,
+    deleteResena,
+    requestRecoveryCode,
+    verifyRecoveryCode,
+    resetPassword,
     loginClient,
     registerClient,
     verifyCodeClient,

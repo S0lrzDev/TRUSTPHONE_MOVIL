@@ -1,6 +1,7 @@
 // Hook para obtener y filtrar el catálogo de celulares desde el backend
 import { useState, useEffect, useCallback } from 'react';
 import { API_ENDPOINTS } from './useCustomData';
+import { REQUEST_TIMEOUT } from '../config/api';
 
 // ─── Helper para extraer la marca del celular de cualquier formato del backend ───
 export const getPhoneBrand = (phone) => {
@@ -60,7 +61,7 @@ const usePhones = () => {
       setError(null);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
       // Cargar celulares
       const response = await fetch(phonesUrl, {

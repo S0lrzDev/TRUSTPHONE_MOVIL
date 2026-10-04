@@ -32,6 +32,8 @@ import AddressesScreen from './AddressesScreen';
 import AddressFormScreen from './AddressFormScreen';
 import PaymentMethodsScreen from './PaymentMethodsScreen';
 import PaymentMethodFormScreen from './PaymentMethodFormScreen';
+import ProductDetailScreen from './ProductDetailScreen';
+import { showAddedToCart, showComingSoon, confirmAction } from '../utils/alerts';
 
 // ─── Colores por marca (dot en chip de filtro) ────────────────────────────────
 const BRAND_COLORS = {
@@ -82,7 +84,7 @@ const ConditionBadge = ({ value }) => {
 };
 
 // ─── Tarjeta de celular ───────────────────────────────────────────────────────
-const PhoneCard = ({ item, onAddToCart }) => {
+const PhoneCard = ({ item, onAddToCart, onPress }) => {
   const [imgError, setImgError] = useState(false);
 
   const name = item.nombre || item.name || item.modelo || 'Sin nombre';
@@ -90,13 +92,14 @@ const PhoneCard = ({ item, onAddToCart }) => {
   const price = item.precio || item.price || 0;
   const imageUrl = item.imagen || item.image || item.foto || item.imageUrl || null;
   const condition = item.condicion || item.estado || item.condition || '';
+  const soldOut = getStock(item) <= 0;
 
   const formattedPrice = typeof price === 'number'
-    ? `${price.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €`
+    ? `$${price.toLocaleString('es-ES', { minimumFractionDigits: 2 })}`
     : price;
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} onPress={() => onPress(item)} activeOpacity={0.85}>
       {/* Imagen */}
       <View style={styles.cardImageContainer}>
         {imageUrl && !imgError ? (
@@ -110,6 +113,11 @@ const PhoneCard = ({ item, onAddToCart }) => {
             <Ionicons name="phone-portrait-outline" size={40} color="#CBD5E1" />
           </View>
         )}
+        {soldOut && (
+          <View style={stockStyles.soldOutBadge}>
+            <Text style={stockStyles.soldOutText}>AGOTADO</Text>
+          </View>
+        )}
       </View>
 
       {/* Info */}
@@ -120,19 +128,46 @@ const PhoneCard = ({ item, onAddToCart }) => {
         <View style={styles.cardPriceRow}>
           <Text style={styles.cardPrice}>{formattedPrice}</Text>
           <TouchableOpacity
-            style={styles.addBtn}
+            style={[styles.addBtn, soldOut && stockStyles.addBtnDisabled]}
             onPress={() => onAddToCart(item)}
             activeOpacity={0.8}
           >
-            <Ionicons name="add" size={18} color="#FFFFFF" />
+            <Ionicons name={soldOut ? 'close' : 'add'} size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
         <ConditionBadge value={condition} />
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
+
+// Stock disponible de un celular (0 si no viene definido)
+export const getStock = (item) => {
+  const stock = Number(item?.stock);
+  return Number.isFinite(stock) && stock > 0 ? stock : 0;
+};
+
+const stockStyles = StyleSheet.create({
+  soldOutBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: colors.error || '#EF4444',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  soldOutText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  addBtnDisabled: {
+    backgroundColor: '#CBD5E1',
+  },
+});
 
 // ─── Chip de filtro ───────────────────────────────────────────────────────────
 const FilterChip = ({ label, active, onPress }) => {
@@ -624,6 +659,7 @@ const filterStyles = StyleSheet.create({
 // ─── Pantalla principal: DashboardScreen ─────────────────────────────────────
 const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
   const {
+    phones,
     filteredPhones,
     loading,
     error,
@@ -658,6 +694,7 @@ const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
   const [completedOrder, setCompletedOrder] = useState(null);
   const [selectedAddressForEdit, setSelectedAddressForEdit] = useState(null);
   const [cartToast, setCartToast] = useState(null);
+  const [selectedPhone, setSelectedPhone] = useState(null);
 
   // Auto-dismiss del toast tras 2.8 segundos
   useEffect(() => {
@@ -686,6 +723,10 @@ const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
   // Manejo del botón atrás físico y gestos de Android
   useEffect(() => {
     const onBackPress = () => {
+      if (currentScreen === 'productDetail') {
+        navigateWithAnimation('catalog', 'inicio');
+        return true;
+      }
       if (currentScreen === 'paymentForm') {
         navigateWithAnimation('paymentMethods', 'perfil');
         return true;
@@ -728,6 +769,23 @@ const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
   }, [fetchPhones]);
 
   const handleAddToCart = (item) => {
+    const itemId = item.id || item._id || item.idCelular;
+    // Usar el stock más reciente del catálogo si está disponible
+    const catalogItem = phones.find((p) => (p.id || p._id) === itemId) || item;
+    const stock = getStock(catalogItem);
+    const inCart = cart.find((c) => (c.id || c._id || c.idCelular) === itemId);
+    const nameForAlert = item.nombre || item.name || item.modelo || 'Este producto';
+
+    // Control de inventario: no permitir agregar productos sin stock
+    if (stock <= 0) {
+      Alert.alert('Producto agotado', `${nameForAlert} no tiene unidades disponibles por el momento.`);
+      return false;
+    }
+    if (inCart && inCart.quantity >= stock) {
+      Alert.alert('Stock máximo', `Solo hay ${stock} unidad(es) disponibles de ${nameForAlert} y ya están en tu carrito.`);
+      return false;
+    }
+
     setCart(prevCart => {
       const existingItem = prevCart.find(
         c => (c.id || c._id || c.idCelular) === (item.id || item._id || item.idCelular)
@@ -739,29 +797,42 @@ const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
             : c
         );
       }
-      return [...prevCart, { ...item, quantity: 1 }];
+      return [...prevCart, { ...catalogItem, quantity: 1 }];
     });
     const itemName = item.nombre || item.name || item.modelo || 'Celular Trustphone';
-    setCartToast({
-      title: '¡Añadido al carrito!',
-      subtitle: itemName,
-    });
+    showAddedToCart(itemName, () => navigateWithAnimation('cart', 'carrito'));
+    return true;
   };
 
   const handleUpdateQuantity = (item, delta) => {
+    const itemId = item.id || item._id || item.idCelular;
+    const catalogItem = phones.find((p) => (p.id || p._id) === itemId) || item;
+    const stock = getStock(catalogItem);
+
+    if (delta > 0 && item.quantity + delta > stock) {
+      Alert.alert('Stock máximo', `Solo hay ${stock} unidad(es) disponibles de este producto.`);
+      return;
+    }
+
     setCart(prevCart => prevCart.map(c => {
-      if ((c.id || c._id || c.idCelular) === (item.id || item._id || item.idCelular)) {
+      if ((c.id || c._id || c.idCelular) === itemId) {
         const newQuantity = c.quantity + delta;
-        return { ...c, quantity: newQuantity > 0 ? newQuantity : 1 };
+        return { ...c, stock, quantity: newQuantity > 0 ? newQuantity : 1 };
       }
       return c;
     }));
   };
 
   const handleRemoveItem = (item) => {
-    setCart(prevCart => prevCart.filter(
-      c => (c.id || c._id || c.idCelular) !== (item.id || item._id || item.idCelular)
-    ));
+    const itemName = item.nombre || item.name || item.modelo || 'este producto';
+    confirmAction(
+      'Eliminar del carrito',
+      `¿Deseas quitar ${itemName} de tu carrito?`,
+      'Eliminar',
+      () => setCart(prevCart => prevCart.filter(
+        c => (c.id || c._id || c.idCelular) !== (item.id || item._id || item.idCelular)
+      ))
+    );
   };
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
@@ -770,7 +841,14 @@ const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
 
   // ─── Render item de la grid ────────────────────────────────────────────────
   const renderPhone = ({ item }) => (
-    <PhoneCard item={item} onAddToCart={handleAddToCart} />
+    <PhoneCard
+      item={item}
+      onAddToCart={handleAddToCart}
+      onPress={(phone) => {
+        setSelectedPhone(phone);
+        navigateWithAnimation('productDetail', 'inicio');
+      }}
+    />
   );
 
   const SORT_LABELS = {
@@ -824,6 +902,20 @@ const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
 
   // ─── Renderizado según la pantalla activa ──────────────────────────────────
   const renderCurrentContent = () => {
+    if (currentScreen === 'productDetail' && selectedPhone) {
+      const phoneId = selectedPhone._id || selectedPhone.id;
+      // Usar los datos más recientes del catálogo (stock actualizado)
+      const freshPhone = phones.find((p) => (p._id || p.id) === phoneId) || selectedPhone;
+      return (
+        <ProductDetailScreen
+          phone={freshPhone}
+          currentUser={currentUser}
+          onBack={() => navigateWithAnimation('catalog', 'inicio')}
+          onAddToCart={handleAddToCart}
+        />
+      );
+    }
+
     if (currentScreen === 'cart') {
       return (
         <CartScreen
@@ -845,6 +937,7 @@ const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
           onSuccess={(order) => {
             setCompletedOrder(order);
             setCart([]); // Vaciamos el carrito tras compra exitosa
+            fetchPhones(); // Refrescar stock del catálogo
             navigateWithAnimation('checkoutSuccess', 'carrito');
           }}
         />
@@ -868,7 +961,7 @@ const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
           onBack={() => navigateWithAnimation('catalog', 'inicio')}
           onExploreCatalog={() => navigateWithAnimation('catalog', 'inicio')}
           onBuyAgain={(item) => {
-            handleAddToCart(item);
+            if (!handleAddToCart(item)) return;
             navigateWithAnimation('cart', 'carrito');
           }}
         />
@@ -952,6 +1045,7 @@ const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
       return (
         <View style={{ flex: 1 }}>
           <HeaderSection
+            onAvatarPress={() => navigateWithAnimation('profile', 'perfil')}
             userInitial={userInitial}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
@@ -972,6 +1066,7 @@ const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
       return (
         <View style={{ flex: 1 }}>
           <HeaderSection
+            onAvatarPress={() => navigateWithAnimation('profile', 'perfil')}
             userInitial={userInitial}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
@@ -1076,6 +1171,7 @@ const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
 
   // Ocultar barra inferior en pantallas de flujo completo (checkout, direcciones, pagos, formularios)
   const HIDE_BOTTOM_TAB_SCREENS = [
+    'productDetail',
     'checkout',
     'checkoutSuccess',
     'addresses',
@@ -1094,18 +1190,6 @@ const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
         {renderCurrentContent()}
       </View>
 
-      {/* Toast flotante de confirmación */}
-      {cartToast && (
-        <CartToast
-          message={cartToast}
-          onHide={() => setCartToast(null)}
-          onViewCart={() => {
-            setCartToast(null);
-            navigateWithAnimation('cart', 'carrito');
-          }}
-        />
-      )}
-
       {shouldShowTabBar && (
         <BottomTabBar
           activeTab={activeTab}
@@ -1120,6 +1204,7 @@ const DashboardScreen = ({ currentUser, onLogout, onUpdateUser }) => {
 
 // ─── Header con logo, búsqueda y filtros ─────────────────────────────────────
 const HeaderSection = ({
+  onAvatarPress,
   userInitial,
   searchQuery,
   setSearchQuery,
@@ -1137,10 +1222,14 @@ const HeaderSection = ({
         <Text style={styles.logoText}>TRUSTPHONE</Text>
       </View>
       <View style={styles.headerActions}>
-        <TouchableOpacity style={styles.iconBtn} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.iconBtn}
+          activeOpacity={0.7}
+          onPress={() => showComingSoon('La lista de favoritos')}
+        >
           <Ionicons name="heart-outline" size={18} color={colors.textSecondary} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.avatarBtn} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.avatarBtn} activeOpacity={0.8} onPress={onAvatarPress}>
           <Text style={styles.avatarInitial}>{userInitial}</Text>
         </TouchableOpacity>
       </View>

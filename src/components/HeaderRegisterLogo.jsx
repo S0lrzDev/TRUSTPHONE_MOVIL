@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { loginStyles } from '../styles/loginStyles';
 import { colors } from '../styles/theme';
 
-export const HeaderRegisterLogo = ({ onBackPress }) => {
+export const HeaderRegisterLogo = ({ onBackPress, title = 'Crear Cuenta' }) => {
   return (
     <View style={{ alignItems: 'center', width: '100%', marginBottom: 12 }}>
       {/* Top Header Row with Back Button and Title */}
@@ -31,7 +31,7 @@ export const HeaderRegisterLogo = ({ onBackPress }) => {
               color: colors.textPrimary,
             }}
           >
-            Crear Cuenta
+            {title}
           </Text>
         </View>
       </View>

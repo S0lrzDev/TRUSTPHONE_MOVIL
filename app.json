@@ -4,7 +4,7 @@
     "slug": "TrustPhone",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/ChatGPT Image 10 sept 2026, 01_53_23 p.m..png",
+    "icon": "./assets/images/trustphone-icon.png",
     "scheme": "trustphone",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -12,10 +12,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#1E3A75",
+        "foregroundImage": "./assets/images/trustphone-icon-fg.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.TrustPhone"
@@ -29,12 +27,12 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/ChatGPT Image 10 sept 2026, 01_53_23 p.m..png",
+          "image": "./assets/images/trustphone-logo.png",
           "imageWidth": 300,
           "resizeMode": "contain",
           "backgroundColor": "#F8FAFC",
           "dark": {
-            "image": "./assets/images/ChatGPT Image 10 sept 2026, 01_53_23 p.m..png",
+            "image": "./assets/images/trustphone-logo.png",
             "imageWidth": 300,
             "resizeMode": "contain",
             "backgroundColor": "#1A202C"
@@ -49,6 +47,7 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "owner": "s0lrzdevs-team"
   }
 }

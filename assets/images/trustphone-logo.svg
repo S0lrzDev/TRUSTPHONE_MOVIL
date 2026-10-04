@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2A4E96"/>
+      <stop offset="1" stop-color="#14295A"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DCE6F8"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#1E3A75"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Fondo -->
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <circle cx="512" cy="470" r="330" fill="#FFFFFF" opacity="0.05"/>
+
+  <!-- Escudo -->
+  <path d="M512 170 L770 262 C770 262 782 520 712 640 C652 744 572 800 512 828 C452 800 372 744 312 640 C242 520 254 262 254 262 Z"
+        fill="url(#shield)"/>
+
+  <!-- Celular -->
+  <rect x="418" y="300" width="188" height="340" rx="34" fill="#1E3A75"/>
+  <rect x="434" y="330" width="156" height="270" rx="16" fill="url(#screen)"/>
+  <rect x="486" y="312" width="52" height="8" rx="4" fill="#5B7BC0"/>
+  <circle cx="512" cy="619" r="9" fill="#5B7BC0"/>
+
+  <!-- Check de confianza -->
+  <circle cx="606" cy="612" r="74" fill="#10B981" stroke="#FFFFFF" stroke-width="16"/>
+  <path d="M570 612 L596 638 L644 588" fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Brillo en pantalla -->
+  <path d="M452 350 L520 350 L452 450 Z" fill="#FFFFFF" opacity="0.18"/>
+</svg>
