@@ -48,6 +48,12 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "owner": "s0lrzdevs-team"
+    "owner": "s0lrzdevs-team",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "53ddc39e-b829-4a03-b955-86e037d36eea"
+      }
+    }
   }
 }
